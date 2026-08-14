@@ -146,7 +146,9 @@ $apiEnv = @(
   @{ key = 'BUSINESS_TIMEZONE'; value = (Get-Secret 'BUSINESS_TIMEZONE' 'Africa/Lagos') },
   @{ key = 'ADMIN_PASSWORD'; value = (Get-Secret 'ADMIN_PASSWORD') },
   @{ key = 'ADMIN_SESSION_SECRET'; value = (Get-Secret 'ADMIN_SESSION_SECRET') },
-  @{ key = 'ANALYTICS_DATABASE_URL'; value = (Get-Secret 'ANALYTICS_DATABASE_URL') }
+  @{ key = 'ANALYTICS_DATABASE_URL'; value = (Get-Secret 'ANALYTICS_DATABASE_URL') },
+  @{ key = 'PAYSTACK_SECRET_KEY'; value = (Get-Secret 'PAYSTACK_SECRET_KEY') },
+  @{ key = 'PAYSTACK_PUBLIC_KEY'; value = (Get-Secret 'PAYSTACK_PUBLIC_KEY') }
 ) + $whatsappSecrets
 
 # Empty values are OMITTED, not sent as "" — the app validates env vars at boot

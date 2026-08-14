@@ -68,6 +68,10 @@ services:
         sync: false
       - key: ANALYTICS_DATABASE_URL
         sync: false
+      - key: PAYSTACK_SECRET_KEY
+        sync: false
+      - key: PAYSTACK_PUBLIC_KEY
+        sync: false
 
   # ---------------------------------------------------------------------------
   # Worker: BullMQ consumer — runs the AI agent, follow-ups, payments, monitor.

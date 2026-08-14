@@ -1,0 +1,13 @@
+{
+  "name": "@wabiz/queue",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BullMQ queue/worker wrappers with retries, backoff, and idempotent enqueue",
+  "dependencies": {
+    "@wabiz/shared": "0.1.0",
+    "bullmq": "^5.34.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

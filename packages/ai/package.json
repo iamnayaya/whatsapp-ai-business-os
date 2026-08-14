@@ -1,0 +1,14 @@
+{
+  "name": "@wabiz/ai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI Sales Agent (Gemini Flash) with tool use for the WhatsApp Business OS",
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "@wabiz/paystack": "0.1.0",
+    "@wabiz/shared": "0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "@wabiz/payment",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Payment processing: webhook charge handling, stock deduction, paid confirmation (Phase 7)",
+  "dependencies": {
+    "@wabiz/audit": "0.1.0",
+    "@wabiz/db": "0.1.0",
+    "@wabiz/paystack": "0.1.0",
+    "@wabiz/shared": "0.1.0",
+    "@wabiz/whatsapp": "0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

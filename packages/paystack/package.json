@@ -1,0 +1,12 @@
+{
+  "name": "@wabiz/paystack",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Paystack client and webhook signature verification (Phase 7)",
+  "dependencies": {
+    "@wabiz/shared": "0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

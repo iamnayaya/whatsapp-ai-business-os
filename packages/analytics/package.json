@@ -1,0 +1,13 @@
+{
+  "name": "@wabiz/analytics",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Owner analytics dashboard: read-only aggregation queries for the WhatsApp Business OS",
+  "dependencies": {
+    "@wabiz/db": "0.1.0",
+    "@wabiz/shared": "0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

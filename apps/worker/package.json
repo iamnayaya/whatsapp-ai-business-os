@@ -1,0 +1,29 @@
+{
+  "name": "@wabiz/worker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BullMQ worker: processes inbound WhatsApp messages",
+  "scripts": {
+    "dev": "ts-node -P ../../tsconfig.json src/main.ts",
+    "start": "node ../../dist/apps/worker/src/main.js"
+  },
+  "dependencies": {
+    "@wabiz/ai": "0.1.0",
+    "@wabiz/audit": "0.1.0",
+    "@wabiz/db": "0.1.0",
+    "@wabiz/followup": "0.1.0",
+    "@wabiz/monitor": "0.1.0",
+    "@wabiz/ops": "0.1.0",
+    "@wabiz/paystack": "0.1.0",
+    "@wabiz/payment": "0.1.0",
+    "@wabiz/queue": "0.1.0",
+    "@wabiz/shared": "0.1.0",
+    "@wabiz/whatsapp": "0.1.0",
+    "bullmq": "^5.34.0",
+    "ioredis": "^5.4.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.5"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "@wabiz/whatsapp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "WhatsApp Business Cloud API client with retries, backoff, and structured errors",
+  "dependencies": {
+    "@wabiz/shared": "0.1.0",
+    "axios": "^1.7.9"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

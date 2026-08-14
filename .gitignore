@@ -1,0 +1,30 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+*.tsbuildinfo
+
+# environment — NEVER commit real secrets
+.env
+.env.local
+.env.*.local
+
+# logs
+*.log
+logs/
+
+# test coverage output
+coverage/
+
+# scratch artifacts
+tmp_rice.png
+
+# prisma generated client
+packages/db/src/generated/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

@@ -1,0 +1,20 @@
+{
+  "name": "@wabiz/db",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PostgreSQL schema (Prisma) and client for WhatsApp AI Business OS",
+  "scripts": {
+    "generate": "prisma generate",
+    "migrate": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "migrate:create": "prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script",
+    "seed": "ts-node -P ../../tsconfig.json scripts/seed-products.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.2.1"
+  },
+  "devDependencies": {
+    "prisma": "^6.2.1",
+    "typescript": "^5.7.2"
+  }
+}

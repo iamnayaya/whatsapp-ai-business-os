@@ -1,0 +1,81 @@
+# Production compose for a single Docker-capable VPS.
+#
+# Builds the monorepo image once and runs the API + worker against a local
+# Postgres + Redis. Secrets come from a `.env` file next to this compose file.
+#
+#   cp .env.example .env   # fill in real values
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# The `environment:` blocks below override the localhost URLs that .env ships
+# with so the containers talk to each other by service name. See
+# docs/DEPLOYMENT.md for the full env var checklist and a Caddy/Traefik note.
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: wabiz:latest
+    environment:
+      SERVICE: api
+      NODE_ENV: production
+      PORT: "3000"
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-whatsapp_biz_os}
+      REDIS_URL: redis://redis:6379
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    image: wabiz:latest
+    environment:
+      SERVICE: worker
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-whatsapp_biz_os}
+      REDIS_URL: redis://redis:6379
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-whatsapp_biz_os}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:

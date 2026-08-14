@@ -1,0 +1,92 @@
+[
+  {
+    "sku": "RICE-50",
+    "name": "Royal Stallion Rice 50kg",
+    "description": "50kg bag of parboiled rice. A staple for every Nigerian kitchen.",
+    "price": 85000,
+    "currency": "NGN",
+    "category": "Groceries",
+    "stock": 40
+  },
+  {
+    "sku": "RICE-10",
+    "name": "Royal Stallion Rice 10kg",
+    "description": "10kg bag of parboiled rice. Perfect for smaller households.",
+    "price": 19000,
+    "currency": "NGN",
+    "category": "Groceries",
+    "stock": 100
+  },
+  {
+    "sku": "PALM-5",
+    "name": "Refined Palm Oil 5L",
+    "description": "5 litre bottle of refined palm oil, sealed.",
+    "price": 14500,
+    "currency": "NGN",
+    "category": "Groceries",
+    "stock": 60
+  },
+  {
+    "sku": "GARRI-25",
+    "name": "Garri 25kg (White)",
+    "description": "25kg bag of white garri, freshly processed.",
+    "price": 32000,
+    "currency": "NGN",
+    "category": "Groceries",
+    "stock": 25
+  },
+  {
+    "sku": "SPAG-500",
+    "name": "Golden Penny Spaghetti 500g",
+    "description": "Pack of 500g spaghetti (20 pieces).",
+    "price": 1200,
+    "currency": "NGN",
+    "category": "Groceries",
+    "stock": 200
+  },
+  {
+    "sku": "TOMATO-300",
+    "name": "Gino Tomato Paste 300g",
+    "description": "Tin of Gino tomato paste, 300g.",
+    "price": 2500,
+    "currency": "NGN",
+    "category": "Groceries",
+    "stock": 150
+  },
+  {
+    "sku": "DETER-1",
+    "name": "Detergent Powder 1kg",
+    "description": "1kg bag of washing powder.",
+    "price": 1800,
+    "currency": "NGN",
+    "category": "Home & Cleaning",
+    "stock": 80
+  },
+  {
+    "sku": "SOAP-B3",
+    "name": "Bathing Soap (3 pack)",
+    "description": "Pack of 3 medicated bathing soaps.",
+    "price": 1500,
+    "currency": "NGN",
+    "category": "Personal Care",
+    "stock": 120
+  },
+  {
+    "sku": "MILK-2.4",
+    "name": "Peak Milk 2.4L",
+    "description": "Peak full cream milk, 2.4 litre bottle.",
+    "price": 6200,
+    "currency": "NGN",
+    "category": "Groceries",
+    "stock": 55
+  },
+  {
+    "sku": "NOODLE-C4",
+    "name": "Indomie Noodles (4 pack)",
+    "description": "Carton pack of 4 Indomie chicken noodles.",
+    "price": 2400,
+    "currency": "NGN",
+    "category": "Groceries",
+    "stock": 300
+  }
+]

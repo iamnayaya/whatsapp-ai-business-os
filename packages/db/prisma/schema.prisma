@@ -1,0 +1,321 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Business {
+  id           String   @id @default(cuid())
+  name         String
+  phoneNumber  String   @unique
+  currency     String   @default("NGN")
+  timezone     String   @default("Africa/Lagos")
+  settings     Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  customers     Customer[]
+  conversations Conversation[]
+  products      Product[]
+  orders        Order[]
+  events        IncomingEvent[]
+  agentActions  AgentAction[]
+  followUps     FollowUp[]
+  escalations   Escalation[]
+
+  @@map("businesses")
+}
+
+model Customer {
+  id          String    @id @default(cuid())
+  businessId  String
+  business    Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  waId        String
+  name        String?
+  profileName String?
+  lang        String?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  conversations Conversation[]
+  orders        Order[]
+  followUps     FollowUp[]
+  escalations   Escalation[]
+
+  @@unique([businessId, waId])
+  @@index([businessId])
+  @@index([waId])
+  @@map("customers")
+}
+
+model Conversation {
+  id            String    @id @default(cuid())
+  businessId    String
+  customerId    String
+  status        String    @default("OPEN")
+  channel       String    @default("WHATSAPP")
+  lastMessageAt DateTime?
+  metadata      Json?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  business Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  messages Message[]
+  followUps FollowUp[]
+  escalations Escalation[]
+
+  @@index([businessId, status])
+  @@index([customerId])
+  @@index([lastMessageAt])
+  @@map("conversations")
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  direction      String
+  waMessageId    String?      @unique
+  type           String
+  text           String?
+  mediaUrl       String?
+  mediaMimeType  String?
+  transcription  String?
+  /// Phase 8 — the AI agent's own sentiment assessment for this turn
+  /// (POSITIVE | NEUTRAL | FRUSTRATED). Computed during the conversation by
+  /// the agent (no separate analysis pass); the dashboard reads it directly.
+  sentiment      String?
+  status         String       @default("RECEIVED")
+  payload        Json?
+  sentAt         DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("messages")
+}
+
+/// Raw capture of every incoming webhook change, written BEFORE any
+/// downstream processing so nothing is ever lost. `eventKey` is unique so a
+/// re-delivered webhook is idempotent at the raw store itself.
+model IncomingEvent {
+  id          String    @id @default(cuid())
+  eventKey    String    @unique
+  type        String
+  waAccountId String?
+  businessId  String?
+  business    Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  payload     Json
+  status      String    @default("PENDING")
+  attempts    Int       @default(0)
+  processedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([status])
+  @@index([businessId])
+  @@index([createdAt])
+  @@map("events")
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  sku         String?
+  price       Decimal  @db.Decimal(12, 2)
+  currency    String   @default("NGN")
+  category    String?
+  imageUrl    String?
+  isActive    Boolean  @default(true)
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  stockLevels StockLevel[]
+  orderItems  OrderItem[]
+
+  @@index([businessId, isActive])
+  @@map("products")
+}
+
+model StockLevel {
+  id        String   @id @default(cuid())
+  productId String   @unique
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity  Int
+  reserved  Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@map("stock_levels")
+}
+
+model Order {
+  id          String    @id @default(cuid())
+  businessId  String
+  customerId  String
+  status      String    @default("DRAFT")
+  subtotal    Decimal?  @db.Decimal(12, 2)
+  deliveryFee Decimal?  @db.Decimal(12, 2)
+  total       Decimal?  @db.Decimal(12, 2)
+  currency       String    @default("NGN")
+  notes          String?
+  externalRef    String?   @unique
+  deliveryAddress String?
+  /// Phase 7 — set the moment the customer pays; drives the manual delivery
+  /// lifecycle (PROCESSING -> SHIPPED -> DELIVERED).
+  paidAt           DateTime?
+  deliveryStatus   String    @default("PENDING")
+  trackingReference String?  @unique
+  /// Phase 7 — the WhatsApp "order paid + tracking" confirmation. Set only
+  /// after the message is sent so a retry after a send failure can resend.
+  confirmationSentAt DateTime?
+  fulfilledAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  business Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  items    OrderItem[]
+  payments Payment[]
+
+  @@index([businessId, status])
+  @@index([customerId])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  productId String
+  quantity  Int
+  unitPrice Decimal @db.Decimal(12, 2)
+  total     Decimal @db.Decimal(12, 2)
+
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+model Payment {
+  id              String    @id @default(cuid())
+  orderId         String
+  provider        String    @default("PAYSTACK")
+  reference       String    @unique
+  amount          Decimal   @db.Decimal(12, 2)
+  currency        String    @default("NGN")
+  status          String    @default("PENDING")
+  providerPayload Json?
+  confirmedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([status])
+  @@map("payments")
+}
+
+/// Audit trail: every money, stock, or customer-facing action by any agent.
+/// A failure to write here is logged loudly but never blocks the main flow.
+model AgentAction {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  actorType  String
+  actorId    String?
+  action     String
+  entityType String?
+  entityId   String?
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  @@index([businessId, createdAt])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@map("agent_actions")
+}
+
+/// One abandoned-cart (CART) or abandoned-payment (PAYMENT) follow-up attempt
+/// sent to a customer. `attempt` is 1-based and unique per conversation+type
+/// (that's the cap guard: a second scan that races the first simply hits the
+/// unique index and skips). `ledToOrder` is flipped when the customer later
+/// places an order so the analytics dashboard can measure follow-up
+/// effectiveness.
+model FollowUp {
+  id             String   @id @default(cuid())
+  businessId     String
+  customerId     String
+  conversationId String
+  /// Which follow-up this is: CART (abandoned cart) or PAYMENT (order created
+  /// but payment never completed).
+  type           String   @default("CART")
+  /// 1 = first nudge (after `FOLLOWUP_FIRST_DELAY_MINUTES`), 2 = last chance
+  /// (after `FOLLOWUP_SECOND_DELAY_MINUTES`). Capped by FOLLOWUP_MAX_ATTEMPTS.
+  attempt        Int
+  /// The cart items referenced in the message: [{ productId, productName, quantity, unitPrice }].
+  items          Json
+  messageText    String
+  waMessageId    String?
+  /// SENDING = claimed (sent about to go out), SENT = delivered, FAILED = send failed.
+  status         String   @default("SENT")
+  /// True when this follow-up's conversation produced an order afterwards.
+  ledToOrder     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  business     Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer     Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, type, attempt])
+  @@index([businessId, createdAt])
+  @@index([customerId])
+  @@index([status])
+  @@index([ledToOrder])
+  @@map("follow_ups")
+}
+
+/// A hand-off to a human operator (Phase 6 multi-agent orchestration). The
+/// orchestrator writes one row per escalation so support staff have a
+/// reviewable queue with a clear reason and category. Escalations are
+/// idempotent per conversation: while one is still OPEN no new row is created.
+model Escalation {
+  id             String   @id @default(cuid())
+  businessId     String
+  customerId     String
+  conversationId String
+  /// The reason the agent handed off, verbatim from the escalate_to_human tool.
+  reason         String
+  /// Heuristic category: ANGRY_CUSTOMER | REFUND_REQUEST | AGENT_UNCERTAIN | OUT_OF_SCOPE | OTHER.
+  category       String   @default("OTHER")
+  /// Which specialized agent requested the hand-off: sales | support | logistics.
+  sourceAgent    String
+  /// OPEN = waiting for a human, RESOLVED = handled.
+  status         String   @default("OPEN")
+  resolvedAt     DateTime?
+  createdAt      DateTime @default(now())
+
+  business     Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer     Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, status])
+  @@index([conversationId, status])
+  @@index([category])
+  @@map("escalations")
+}

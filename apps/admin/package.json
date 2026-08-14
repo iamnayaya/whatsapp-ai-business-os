@@ -1,0 +1,21 @@
+{
+  "name": "@wabiz/admin",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Admin CLI: auto catalog generation from product photos (Phase 4)",
+  "scripts": {
+    "dev": "ts-node -P ../../tsconfig.json src/main.ts",
+    "start": "node ../../dist/apps/admin/src/main.js"
+  },
+  "dependencies": {
+    "@wabiz/ai": "0.1.0",
+    "@wabiz/audit": "0.1.0",
+    "@wabiz/db": "0.1.0",
+    "@wabiz/shared": "0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.5"
+  }
+}

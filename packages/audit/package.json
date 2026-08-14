@@ -1,0 +1,13 @@
+{
+  "name": "@wabiz/audit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Audit trail writer: every money, stock, and customer-facing AI action",
+  "dependencies": {
+    "@wabiz/db": "0.1.0",
+    "@wabiz/shared": "0.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

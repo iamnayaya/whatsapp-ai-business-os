@@ -1,0 +1,14 @@
+node_modules
+dist
+coverage
+.git
+.github
+.env
+.env.*
+*.log
+logs
+tmp_rice.png
+api2.err.log
+api2.out.log
+docs
+tests

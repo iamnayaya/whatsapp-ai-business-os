@@ -1,0 +1,14 @@
+{
+  "name": "@wabiz/monitor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Uptime/error monitoring + Slack/email alerting for WhatsApp AI Business OS",
+  "dependencies": {
+    "@wabiz/shared": "0.1.0",
+    "ioredis": "^5.4.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vitest": "^3.0.5"
+  }
+}

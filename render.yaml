@@ -18,7 +18,7 @@ services:
   - type: web
     name: wabiz-api
     runtime: docker
-    repo: https://github.com/YOUR_ORG/YOUR_REPO.git
+    repo: https://github.com/iamnayaya/whatsapp-ai-business-os.git
     plan: starter
     region: frankfurt
     dockerfilePath: ./Dockerfile
@@ -75,7 +75,7 @@ services:
   - type: worker
     name: wabiz-worker
     runtime: docker
-    repo: https://github.com/YOUR_ORG/YOUR_REPO.git
+    repo: https://github.com/iamnayaya/whatsapp-ai-business-os.git
     plan: starter
     region: frankfurt
     dockerfilePath: ./Dockerfile

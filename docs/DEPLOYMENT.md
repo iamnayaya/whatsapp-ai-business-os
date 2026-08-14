@@ -54,6 +54,32 @@ Where each secret comes from:
 
 ## 2. Render (recommended)
 
+### 2a. One-shot automated provisioning (Render API)
+
+[`scripts/deploy-render.ps1`](../scripts/deploy-render.ps1) creates and wires the
+whole stack (Postgres + Redis + API + worker) through the Render API, sets the
+connection strings, and prints the remaining secrets checklist:
+
+```powershell
+$env:RENDER_API_KEY  = "rnd_..."           # dashboard.render.com -> Account Settings -> API Keys
+$env:RENDER_OWNER_ID = "tea-..."           # your Workspace -> Settings
+$env:REPO_URL        = "https://github.com/iamnayaya/whatsapp-ai-business-os"
+./scripts/deploy-render.ps1 -Plan starter  # add -SkipWorker for a free-tier smoke test only
+```
+
+Pre-fill any secrets you already have by setting the matching env var first
+(e.g. `$env:GEMINI_API_KEY = "..."`); everything else is created as an empty
+placeholder you fill in the dashboard.
+
+> **Billing required.** The **worker is a background service, which has no free
+> tier** — creating it needs a payment method (`402 Payment required`
+> otherwise). Free databases/Redis are also limited to **one per workspace** and
+> **expire after 30 days**; if your free slots are taken by other projects you
+> must upgrade to a paid plan (or delete the other resource) before creating
+> your own. This is exactly why `-Plan starter` is the default.
+
+### 2b. Blueprint (dashboard, manual)
+
 1. Push this repo to GitHub and edit `repo:` in [`render.yaml`](../render.yaml).
 2. Render dashboard → **New → Blueprint** → pick the repo. It creates:
    - `wabiz-api` (web service, health check `/health`)

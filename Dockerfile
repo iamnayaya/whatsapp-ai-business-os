@@ -55,6 +55,10 @@ COPY --from=build /app/package.json /app/package-lock.json ./
 # can be run as one-off jobs inside the same image.
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
+# The compiled `dist/packages/db/src/client.js` requires './generated/client'
+# (Prisma's output). tsc does not emit the generated client, so copy it into
+# the dist tree alongside the compiled sources.
+COPY --from=build /app/packages/db/src/generated ./dist/packages/db/src/generated
 # Prisma schema, migrations, seed scripts and CLI entrypoint.
 COPY --from=build /app/packages/db ./packages/db
 

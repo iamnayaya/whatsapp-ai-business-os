@@ -142,7 +142,7 @@ ${FONTS}
           <div class="icon">📷</div>
           <div class="text">Drag & drop photos here, or tap to select</div>
           <div class="hint">Multiple images allowed — each will be reviewed separately</div>
-          <input type="file" id="images" name="images" accept="image/*" multiple capture="environment" required>
+          <input type="file" id="images" name="images" accept="image/*" multiple required>
         </div>
         <div class="file-previews" id="previews"></div>
       </div>

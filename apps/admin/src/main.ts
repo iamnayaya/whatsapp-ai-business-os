@@ -4,7 +4,7 @@ import * as readline from 'readline';
 import { loadEnv, createLogger } from '../../../packages/shared/src';
 import { createPrismaClient } from '../../../packages/db/src';
 import { createAuditService } from '../../../packages/audit/src';
-import { GeminiClient, CatalogGenerator } from '../../../packages/ai/src';
+import { createLlmClient, CatalogGenerator } from '../../../packages/ai/src';
 import { CatalogService, type CatalogImportItem, type GeneratedListing } from './catalog.service';
 
 /**
@@ -17,13 +17,20 @@ import { CatalogService, type CatalogImportItem, type GeneratedListing } from '.
  */
 async function main(): Promise<void> {
   const env = loadEnv();
-  if (!env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY is required (vision model)');
+  if (!env.GEMINI_API_KEY && !env.XAI_API_KEY) throw new Error('XAI_API_KEY or GEMINI_API_KEY is required (vision model)');
   const args = parseArgs(process.argv.slice(2));
 
   const logger = createLogger('catalog-cli');
   const prisma = createPrismaClient();
   const audit = createAuditService({ prisma, logger });
-  const llm = new GeminiClient({ apiKey: env.GEMINI_API_KEY, model: env.GEMINI_MODEL, logger: logger.child('gemini') });
+  const llm = createLlmClient({
+    xaiApiKey: env.XAI_API_KEY,
+    xaiModel: env.XAI_MODEL,
+    xaiBaseUrl: env.XAI_BASE_URL,
+    geminiApiKey: env.GEMINI_API_KEY,
+    geminiModel: env.GEMINI_MODEL,
+    logger: logger.child('llm'),
+  });
 
   const business =
     (await prisma.business.findFirst()) ??

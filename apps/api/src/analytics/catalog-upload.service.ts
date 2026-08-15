@@ -3,7 +3,7 @@ import type {} from 'multer';
 import type { PrismaClient } from '../../../../packages/db/src';
 import type { AppLogger } from '../../../../packages/shared/src';
 import type { GeneratedListing } from '../../../../packages/ai/src';
-import { CatalogGenerator, GeminiClient } from '../../../../packages/ai/src';
+import { CatalogGenerator, createLlmClient } from '../../../../packages/ai/src';
 import {
   CatalogService,
   type CatalogImportItem,
@@ -77,17 +77,22 @@ export class CatalogUploadService {
     return this.businessCurrency || this.config.BUSINESS_CURRENCY;
   }
 
-  /** Builds the shared CatalogService on first use (so the API boots without GEMINI_API_KEY). */
+  /** Builds the shared CatalogService on first use (so the API boots without a provider key). */
   private ensureCatalogService(): CatalogService {
     if (this.catalogService) return this.catalogService;
 
     const apiKey = this.config.GEMINI_API_KEY;
-    if (!apiKey) throw new Error('GEMINI_API_KEY is required to generate catalog listings');
+    if (!apiKey && !this.config.XAI_API_KEY) {
+      throw new Error('XAI_API_KEY or GEMINI_API_KEY is required to generate catalog listings');
+    }
 
-    const llm = new GeminiClient({
-      apiKey,
-      model: this.config.GEMINI_MODEL,
-      logger: this.logger.child('gemini'),
+    const llm = createLlmClient({
+      xaiApiKey: this.config.XAI_API_KEY,
+      xaiModel: this.config.XAI_MODEL,
+      xaiBaseUrl: this.config.XAI_BASE_URL,
+      geminiApiKey: this.config.GEMINI_API_KEY,
+      geminiModel: this.config.GEMINI_MODEL,
+      logger: this.logger.child('llm'),
     });
 
     this.catalogService = new CatalogService({

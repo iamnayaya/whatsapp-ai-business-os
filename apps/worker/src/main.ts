@@ -13,7 +13,7 @@ import {
 import { createWhatsAppClient } from '../../../packages/whatsapp/src';
 import { createPaystackClient } from '../../../packages/paystack/src';
 import { createPaymentService } from '../../../packages/payment/src';
-import { GeminiClient, GeminiTranscriber, AgentOrchestrator } from '../../../packages/ai/src';
+import { createLlmClient, GeminiTranscriber, AgentOrchestrator } from '../../../packages/ai/src';
 import { createFollowUpService, type FollowUpConfig } from '../../../packages/followup/src';
 import { createKillSwitch } from '../../../packages/ops/src';
 import {
@@ -41,8 +41,8 @@ function smtpFromEnv(env: Env): SmtpConfig | undefined {
 
 async function main(): Promise<void> {
   const env = loadEnv();
-  if (!env.GEMINI_API_KEY) {
-    throw new Error('GEMINI_API_KEY is required to run the worker (Phase 2 Sales Agent / Phase 3 voice notes)');
+  if (!env.GEMINI_API_KEY && !env.XAI_API_KEY) {
+    throw new Error('At least one LLM provider key is required (XAI_API_KEY or GEMINI_API_KEY)');
   }
   const logger = createLogger('worker');
   const prisma = createPrismaClient();
@@ -91,11 +91,14 @@ async function main(): Promise<void> {
     } satisfies MonitorConfig,
   });
 
-  const llm = new GeminiClient({
-    apiKey: env.GEMINI_API_KEY,
-    model: env.GEMINI_MODEL,
-    logger: logger.child('gemini'),
-    // Fire-and-forget counter increment so a Gemini outage surfaces as an
+  const llm = createLlmClient({
+    xaiApiKey: env.XAI_API_KEY,
+    xaiModel: env.XAI_MODEL,
+    xaiBaseUrl: env.XAI_BASE_URL,
+    geminiApiKey: env.GEMINI_API_KEY,
+    geminiModel: env.GEMINI_MODEL,
+    logger: logger.child('llm'),
+    // Fire-and-forget counter increment so a provider outage surfaces as an
     // alert (AI error spike) even when the queue's own retries mask it.
     onError: () => {
       void aiErrorCounter.inc('ai.error').catch(() => undefined);

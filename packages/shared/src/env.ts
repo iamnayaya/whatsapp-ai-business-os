@@ -28,6 +28,13 @@ export const envSchema = z.object({
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_MODEL: z.string().min(1).default('gemini-flash-latest'),
 
+  // Grok (xAI) — OpenAI-compatible provider. The conversation agent prefers
+  // Grok whenever XAI_API_KEY is set; GEMINI_API_KEY remains the fallback and
+  // the voice-note transcriber. XAI_BASE_URL defaults to the public endpoint.
+  XAI_API_KEY: z.string().optional(),
+  XAI_MODEL: z.string().min(1).default('grok-4.6'),
+  XAI_BASE_URL: z.string().min(1).default('https://api.x.ai/v1'),
+
   TRANSCRIBER_MIN_CONFIDENCE: z.coerce.number().min(0).max(1).optional(),
 
   // Phase 5 — abandoned-cart follow-up scan (BullMQ repeatable job).

@@ -18,3 +18,7 @@ export { GeminiTranscriber, parseTranscriptionJson, normalizeLanguage, detectLan
 export type { Transcriber, TranscriptionLlm, TranscriptionResult, TranscriptionConfig, DetectedLanguage } from './transcription';
 export { CatalogGenerator, parseCatalogJson, buildCatalogPrompt, catalogErrorMessage } from './catalog';
 export type { VisionLlm, CatalogBasicInfo, GeneratedListing, CatalogGenerationResult, CatalogGenerationConfig } from './catalog';
+export { GrokClient, GrokApiError, grokErrorMessage } from './grok';
+export type { GrokClientConfig, GrokMessage } from './grok';
+export { createLlmClient } from './factory';
+export type { LlmClient, LlmClientConfig } from './factory';

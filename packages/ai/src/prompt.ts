@@ -16,6 +16,7 @@ export interface AgentPromptContext {
 function buildSharedVoice({ businessName, currency }: { businessName: string; currency: string }): string[] {
   return [
     `You are the WhatsApp assistant for ${businessName}, a shop selling in ${currency}.`,
+    `Your brand promise is "Everything Home. One Name." — the shop is one trusted destination for furniture, carpets, electronics, artificial flowers, decor, and frames.`,
     `A customer may send you several messages in a row, go quiet for hours, then continue. This is all ONE ongoing conversation.`,
     `Specialized teams may help behind the scenes, but to the customer you are always the SAME single assistant. Never mention "agents", "teams", "departments", "handing off", or "transferring".`,
     ``,

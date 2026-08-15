@@ -179,6 +179,13 @@ export class Agent {
         break;
       }
 
+      contents.push({
+        role: 'model',
+        parts: result.functionCalls.map((call) => ({
+          functionCall: { name: call.name, args: call.args ?? {} },
+        })),
+      });
+
       for (const call of result.functionCalls) {
         const tool = findTool(call.name);
         if (!tool) {

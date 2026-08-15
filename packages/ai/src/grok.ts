@@ -14,6 +14,13 @@ export interface GrokClientConfig {
   model: string;
   /** Base URL of the OpenAI-compatible endpoint. Defaults to the xAI public API. */
   baseUrl?: string;
+  /** Optional separate model for vision calls (product-photo → listings). */
+  visionModel?: string;
+  /**
+   * Optional separate model for audio transcription (e.g. whisper on Groq).
+   * Defaults to the conversation model.
+   */
+  audioModel?: string;
   logger: AppLogger;
   /**
    * Optional hook fired once per FAILED generation call (before retry/backoff
@@ -38,11 +45,12 @@ interface GrokToolCall {
 }
 
 /**
- * Grok (xAI) client. Implements the SAME internal interface as GeminiClient
- * (`generate`, `transcribeAudio`, `analyzeImage`) so the agent, router and
- * orchestrator never know which provider is behind the seam. The wire format is
- * OpenAI-compatible chat completions — the factory (`createLlmClient`) decides
- * which provider to instantiate from env.
+ * OpenAI-compatible LLM client (Groq, xAI, HF Router, …). Implements the SAME
+ * internal interface as GeminiClient (`generate`, `transcribeAudio`,
+ * `analyzeImage`) so the agent, router and orchestrator never know which
+ * provider is behind the seam. The wire format is OpenAI-compatible chat
+ * completions — the factory (`createLlmClient`) decides which provider to
+ * instantiate from env.
  */
 export class GrokClient {
   private readonly baseUrl: string;
@@ -86,33 +94,17 @@ export class GrokClient {
   }
 
   /**
-   * Transcribes an audio/voice note. xAI's chat endpoint does not accept raw
-   * audio today, so this is a best-effort path — the factory routes voice notes
-   * to Gemini when a Gemini key is configured, and the transcriber degrades to
-   * "ask the customer to repeat" whenever this call fails.
+   * Transcribes an audio/voice note. Chat models cannot hear raw audio, so this
+   * uses the provider's OpenAI-compatible transcription route when available:
+   * - HF Router (`router.huggingface.co`): multipart POST to `/audio/transcriptions`.
+   * - xAI chat: best-effort `input_audio` content part (unsupported today, so
+   *   this path usually fails and the transcriber asks the customer to repeat).
    */
   async transcribeAudio(opts: TranscribeAudioOptions): Promise<GeminiResult> {
     return withRetry(
       async () => {
         try {
-          const content = [
-            {
-              type: 'text',
-              text: opts.prompt ?? 'Transcribe this audio verbatim. Reply with only the transcription.',
-            },
-            {
-              type: 'input_audio',
-              input_audio: { data: opts.buffer.toString('base64'), format: mimeToAudioFormat(opts.mimeType) },
-            },
-          ];
-          const res = await this.fetchFn(`${this.baseUrl}/chat/completions`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${this.config.apiKey}`,
-            },
-            body: JSON.stringify({ model: this.config.model, messages: [{ role: 'user', content }] }),
-          });
+          const res = await this.transcribeViaProvider(opts);
           return await this.parseResponse(res);
         } catch (err) {
           throw this.classifyError(err);
@@ -122,10 +114,64 @@ export class GrokClient {
     );
   }
 
+  private isXai(): boolean {
+    try {
+      return new URL(this.baseUrl).hostname === 'api.x.ai';
+    } catch {
+      return false;
+    }
+  }
+
+  private async transcribeViaProvider(opts: TranscribeAudioOptions): Promise<Response> {
+    if (!this.isXai()) {
+      // OpenAI-compatible transcription route (Groq whisper, HF Router STT):
+      // multipart POST to `/audio/transcriptions` with the audio model name.
+      const form = new FormData();
+      form.append('file', new Blob([opts.buffer], { type: opts.mimeType }), `voice-note.${extForMime(opts.mimeType)}`);
+      form.append('model', this.config.audioModel ?? this.config.model);
+      const res = await this.fetchFn(`${this.baseUrl}/audio/transcriptions`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${this.config.apiKey}` },
+        body: form,
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { text?: string };
+        // Reuse the chat-completions response contract so parseResponse works:
+        // wrap the transcription text as a plain chat reply.
+        const wrapped = new Response(
+          JSON.stringify({ choices: [{ message: { content: data.text ?? '' } }] }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+        return wrapped;
+      }
+      return res;
+    }
+    // xAI chat best-effort path (input_audio is not supported by Grok today).
+    const content = [
+      {
+        type: 'text',
+        text: opts.prompt ?? 'Transcribe this audio verbatim. Reply with only the transcription.',
+      },
+      {
+        type: 'input_audio',
+        input_audio: { data: opts.buffer.toString('base64'), format: mimeToAudioFormat(opts.mimeType) },
+      },
+    ];
+    return this.fetchFn(`${this.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${this.config.apiKey}`,
+      },
+      body: JSON.stringify({ model: this.config.model, messages: [{ role: 'user', content }] }),
+    });
+  }
+
   /**
    * Sends an image with a prompt (vision) using the OpenAI image_url content
-   * format, which Grok's vision models accept. Used for product-photo →
-   * listing generation.
+   * format, which vision-capable models (e.g. Qwen VL on the HF router)
+   * accept. Used for product-photo → listing generation. Uses the optional
+   * `visionModel` override so a text-only conversation model can stay primary.
    */
   async analyzeImage(opts: AnalyzeImageOptions): Promise<GeminiResult> {
     return withRetry(
@@ -147,7 +193,7 @@ export class GrokClient {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${this.config.apiKey}`,
             },
-            body: JSON.stringify({ model: this.config.model, messages: [{ role: 'user', content }] }),
+            body: JSON.stringify({ model: this.config.visionModel ?? this.config.model, messages: [{ role: 'user', content }] }),
           });
           return await this.parseResponse(res);
         } catch (err) {
@@ -230,8 +276,8 @@ export class GrokClient {
     if (!res.ok) {
       let detail = '';
       try {
-        const body = (await res.json()) as { error?: { message?: string } };
-        detail = body.error?.message ?? '';
+        const body = (await res.json()) as { error?: { message?: string } | string };
+        detail = typeof body.error === 'string' ? body.error : (body.error?.message ?? '');
       } catch {
         // Non-JSON error body — ignore.
       }
@@ -300,9 +346,33 @@ export class GrokApiError extends Error {
 }
 
 function toOpenAiTool(decl: GeminiFunctionDeclaration): { type: 'function'; function: Record<string, unknown> } {
-  const fn: Record<string, unknown> = { name: decl.name, parameters: decl.parameters };
+  const fn: Record<string, unknown> = { name: decl.name, parameters: normalizeJsonSchema(decl.parameters) };
   if (decl.description) fn.description = decl.description;
   return { type: 'function', function: fn };
+}
+
+/** Gemini types are upper-case (OBJECT/STRING/…); OpenAI-compatible providers
+ * require valid JSON Schema (object/string/…), so normalize recursively. */
+function normalizeJsonSchema(schema: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(schema)) {
+    if (key === 'type' && typeof value === 'string') {
+      out.type = value.toLowerCase();
+    } else if (key === 'items' && value && typeof value === 'object' && !Array.isArray(value)) {
+      out.items = normalizeJsonSchema(value as Record<string, unknown>);
+    } else if (key === 'properties' && value && typeof value === 'object' && !Array.isArray(value)) {
+      const props: Record<string, unknown> = {};
+      for (const [name, p] of Object.entries(value as Record<string, unknown>)) {
+        props[name] = p && typeof p === 'object' && !Array.isArray(p)
+          ? normalizeJsonSchema(p as Record<string, unknown>)
+          : p;
+      }
+      out.properties = props;
+    } else {
+      out[key] = value;
+    }
+  }
+  return out;
 }
 
 function safeParseJson(raw: string): Record<string, unknown> {
@@ -317,6 +387,15 @@ function safeParseJson(raw: string): Record<string, unknown> {
 function mimeToAudioFormat(mimeType: string): string {
   const ext = mimeType.split('/')[1]?.toLowerCase() ?? '';
   return ext === 'ogg' ? 'ogg' : ext === 'amr' ? 'amr' : ext === 'mp3' || ext === 'mpeg' ? 'mp3' : 'wav';
+}
+
+/** Maps a mimeType to the file extension used in the transcription upload. */
+function extForMime(mimeType: string): string {
+  const ext = mimeType.split('/')[1]?.toLowerCase() ?? '';
+  if (ext === 'x-m4a') return 'm4a';
+  if (ext === 'mpeg' || ext === 'mpga') return 'mp3';
+  if (ext === 'quicktime') return 'mp4';
+  return /^[a-z0-9]{2,5}$/.test(ext) ? ext : 'bin';
 }
 
 export function grokErrorMessage(err: unknown): string {

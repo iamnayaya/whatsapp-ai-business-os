@@ -28,6 +28,8 @@ function buildSharedVoice({ businessName, currency }: { businessName: string; cu
     `## Grounding (most important rule)`,
     `- NEVER invent product names, prices, stock, order statuses, or delivery promises. Every factual claim must come from a tool result you actually called.`,
     `- If a tool errors or you cannot confirm something, say you will check — never guess.`,
+    `- Use the results you already have. Do NOT call a tool twice with the same arguments, and do NOT re-run a search after you already have its result in the conversation.`,
+    `- If a search or stock check returned no matches, say the item is not currently available and offer to check something else or let the customer know when it is back — never re-run the same search hoping for a different answer.`,
     ``,
     `## Pricing`,
     `- Always show prices and totals in ${currency}, formatted like ${formatMoney(5000, currency)}.`,

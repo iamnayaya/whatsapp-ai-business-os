@@ -17,16 +17,21 @@ import { CatalogService, type CatalogImportItem, type GeneratedListing } from '.
  */
 async function main(): Promise<void> {
   const env = loadEnv();
-  if (!env.GEMINI_API_KEY && !env.XAI_API_KEY) throw new Error('XAI_API_KEY or GEMINI_API_KEY is required (vision model)');
+  if (!env.GEMINI_API_KEY && !env.GROQ_API_KEY) throw new Error('GROQ_API_KEY or GEMINI_API_KEY is required (vision model)');
   const args = parseArgs(process.argv.slice(2));
 
   const logger = createLogger('catalog-cli');
   const prisma = createPrismaClient();
   const audit = createAuditService({ prisma, logger });
   const llm = createLlmClient({
-    xaiApiKey: env.XAI_API_KEY,
-    xaiModel: env.XAI_MODEL,
-    xaiBaseUrl: env.XAI_BASE_URL,
+    groqApiKey: env.GROQ_API_KEY,
+    groqModel: env.GROQ_MODEL,
+    groqBaseUrl: env.GROQ_BASE_URL,
+    groqVisionModel: env.GROQ_VISION_MODEL,
+    groqAudioModel: env.GROQ_AUDIO_MODEL,
+    visionApiKey: env.VISION_API_KEY,
+    visionBaseUrl: env.VISION_BASE_URL,
+    visionModel: env.VISION_MODEL,
     geminiApiKey: env.GEMINI_API_KEY,
     geminiModel: env.GEMINI_MODEL,
     logger: logger.child('llm'),

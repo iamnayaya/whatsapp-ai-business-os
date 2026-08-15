@@ -81,15 +81,20 @@ export class CatalogUploadService {
   private ensureCatalogService(): CatalogService {
     if (this.catalogService) return this.catalogService;
 
-    const apiKey = this.config.GEMINI_API_KEY;
-    if (!apiKey && !this.config.XAI_API_KEY) {
-      throw new Error('XAI_API_KEY or GEMINI_API_KEY is required to generate catalog listings');
+    const apiKey = this.config.GROQ_API_KEY ?? this.config.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error('GROQ_API_KEY or GEMINI_API_KEY is required to generate catalog listings');
     }
 
     const llm = createLlmClient({
-      xaiApiKey: this.config.XAI_API_KEY,
-      xaiModel: this.config.XAI_MODEL,
-      xaiBaseUrl: this.config.XAI_BASE_URL,
+      groqApiKey: this.config.GROQ_API_KEY,
+      groqModel: this.config.GROQ_MODEL,
+      groqBaseUrl: this.config.GROQ_BASE_URL,
+      groqVisionModel: this.config.GROQ_VISION_MODEL,
+      groqAudioModel: this.config.GROQ_AUDIO_MODEL,
+      visionApiKey: this.config.VISION_API_KEY,
+      visionBaseUrl: this.config.VISION_BASE_URL,
+      visionModel: this.config.VISION_MODEL,
       geminiApiKey: this.config.GEMINI_API_KEY,
       geminiModel: this.config.GEMINI_MODEL,
       logger: this.logger.child('llm'),

@@ -47,7 +47,11 @@ describe('GrokClient.generate', () => {
       expect(body.messages[3]).toEqual({ role: 'tool', tool_call_id: 'call_1', content: '{"results":[]}' });
       expect(body.tools?.[0]).toEqual({
         type: 'function',
-        function: { name: 'search_products', description: 'Search the catalog', parameters: TOOLS[0].parameters },
+        function: {
+          name: 'search_products',
+          description: 'Search the catalog',
+          parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] },
+        },
       });
       return {
         status: 200,
@@ -164,6 +168,43 @@ describe('GrokClient.analyzeImage / transcribeAudio', () => {
     expect(result.text).toBe('{"usable":true}');
   });
 
+  it('uses the visionModel override for image calls when set', async () => {
+    const fetchFn = makeFetch((_url, init) => {
+      const body = JSON.parse(String(init.body)) as { model: string };
+      expect(body.model).toBe('Qwen/Qwen3-VL-30B-A3B-Instruct');
+      return { status: 200, body: { choices: [{ message: { content: 'ok' } }] } };
+    });
+    const client = new GrokClient({
+      apiKey: 'test-key',
+      model: 'meta-llama/Llama-3.3-70B-Instruct',
+      visionModel: 'Qwen/Qwen3-VL-30B-A3B-Instruct',
+      logger: silentLogger,
+      fetchFn,
+    });
+    await client.analyzeImage({ buffer: Buffer.from('img'), mimeType: 'image/jpeg' });
+  });
+
+  it('routes voice notes through the HF Router transcription endpoint', async () => {
+    const fetchFn = makeFetch((url, init) => {
+      expect(url).toBe('https://router.huggingface.co/v1/audio/transcriptions');
+      expect(init.method).toBe('POST');
+      expect(init.body).toBeInstanceOf(FormData);
+      const headers = new Headers(init.headers);
+      expect(String(headers.get('Authorization') ?? '')).toContain('Bearer');
+      return { status: 200, body: { text: 'salaam bani' } };
+    });
+    const client = new GrokClient({
+      apiKey: 'hf-test',
+      model: 'meta-llama/Llama-3.3-70B-Instruct',
+      baseUrl: 'https://router.huggingface.co/v1',
+      logger: silentLogger,
+      fetchFn,
+    });
+    const result = await client.transcribeAudio({ buffer: Buffer.from('aud'), mimeType: 'audio/wav' });
+    expect(result.text).toBe('salaam bani');
+    expect(result.functionCalls).toEqual([]);
+  });
+
   it('maps the mime type to an audio format for the input_audio part', async () => {
     const fetchFn = makeFetch((_url, init) => {
       const body = JSON.parse(String(init.body)) as { messages: Array<{ content: unknown[] }> };
@@ -180,59 +221,50 @@ describe('GrokClient.analyzeImage / transcribeAudio', () => {
 
 describe('createLlmClient', () => {
   it('throws when no provider key is configured', () => {
-    expect(() => createLlmClient({ logger: silentLogger })).toThrow(/XAI_API_KEY or GEMINI_API_KEY/);
+    expect(() => createLlmClient({ logger: silentLogger })).toThrow(/GROQ_API_KEY or GEMINI_API_KEY/);
   });
 
-  it('uses Grok for conversations and vision when only XAI_API_KEY is set', async () => {
-    const fetchFn = makeFetch((url) => {
-      expect(url).toContain('api.x.ai');
-      return { status: 200, body: { choices: [{ message: { content: 'via grok' } }] } };
+  it('uses Groq for conversations, vision and voice when only GROQ_API_KEY is set', async () => {
+    const fetchFn = makeFetch((url, init) => {
+      expect(String(url)).toContain('api.groq.com');
+      if (String(url).includes('/audio/transcriptions')) {
+        expect(init.body).toBeInstanceOf(FormData);
+        return { status: 200, body: { text: '{"text":"salaam"}' } };
+      }
+      return { status: 200, body: { choices: [{ message: { content: 'via groq' } }] } };
     });
-    const llm = createLlmClient({ xaiApiKey: 'xai-key', logger: silentLogger, fetchFn });
+    const llm = createLlmClient({ groqApiKey: 'gsk-test', logger: silentLogger, fetchFn });
 
     const result = await llm.generate({ contents: [], systemInstruction: '', tools: [] });
-    expect(result.text).toBe('via grok');
+    expect(result.text).toBe('via groq');
 
     const vision = await llm.analyzeImage({ buffer: Buffer.from('x'), mimeType: 'image/png' });
-    expect(vision.text).toBe('via grok');
+    expect(vision.text).toBe('via groq');
+
+    const transcript = await llm.transcribeAudio({ buffer: Buffer.from('a'), mimeType: 'audio/wav' });
+    expect(transcript.text).toBe('{"text":"salaam"}');
   });
 
-  it('hybrid: conversations via Grok, voice transcription via Gemini', async () => {
-    const fetchMock = vi.fn(async (input: string) => {
-      const url = String(input);
-      if (url.includes('api.x.ai')) {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({ choices: [{ message: { content: 'via grok' } }] }),
-        } as Response;
+  it('routes vision to a separate provider when VISION_API_KEY is set', async () => {
+    const fetchFn = makeFetch((url) => {
+      if (String(url).includes('router.huggingface.co')) {
+        return { status: 200, body: { choices: [{ message: { content: 'vision via HF' } }] } };
       }
-      // Gemini REST shape for transcribeAudio (text-only reply).
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({
-          candidates: [{ content: { parts: [{ text: '{"text":"salaam","language":"ha","confidence":0.9}' }] } }],
-        }),
-      } as Response;
+      return { status: 200, body: { choices: [{ message: { content: 'chat via groq' } }] } };
     });
-    vi.stubGlobal('fetch', fetchMock);
-    try {
-      const llm = createLlmClient({
-        xaiApiKey: 'xai-key',
-        geminiApiKey: 'gemini-key',
-        logger: silentLogger,
-      });
+    const llm = createLlmClient({
+      groqApiKey: 'gsk-test',
+      visionApiKey: 'hf-test',
+      visionBaseUrl: 'https://router.huggingface.co/v1',
+      visionModel: 'Qwen/Qwen3-VL-30B-A3B-Instruct',
+      logger: silentLogger,
+      fetchFn,
+    });
 
-      const conv = await llm.generate({ contents: [], systemInstruction: '', tools: [] });
-      expect(conv.text).toBe('via grok');
-      expect(String(fetchMock.mock.calls[0][0])).toContain('api.x.ai');
+    const conv = await llm.generate({ contents: [], systemInstruction: '', tools: [] });
+    expect(conv.text).toBe('chat via groq');
 
-      const transcript = await llm.transcribeAudio({ buffer: Buffer.from('a'), mimeType: 'audio/wav' });
-      expect(transcript.text).toContain('salaam');
-      expect(String(fetchMock.mock.calls[1][0])).toContain('generativelanguage.googleapis.com');
-    } finally {
-      vi.unstubAllGlobals();
-    }
+    const vision = await llm.analyzeImage({ buffer: Buffer.from('x'), mimeType: 'image/png' });
+    expect(vision.text).toBe('vision via HF');
   });
 });

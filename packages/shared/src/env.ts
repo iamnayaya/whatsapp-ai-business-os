@@ -28,12 +28,23 @@ export const envSchema = z.object({
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_MODEL: z.string().min(1).default('gemini-flash-latest'),
 
-  // Grok (xAI) — OpenAI-compatible provider. The conversation agent prefers
-  // Grok whenever XAI_API_KEY is set; GEMINI_API_KEY remains the fallback and
-  // the voice-note transcriber. XAI_BASE_URL defaults to the public endpoint.
-  XAI_API_KEY: z.string().optional(),
-  XAI_MODEL: z.string().min(1).default('grok-4.6'),
-  XAI_BASE_URL: z.string().min(1).default('https://api.x.ai/v1'),
+  // Groq — OpenAI-compatible provider driving conversations, vision, and
+  // voice transcription (whisper). The conversation agent prefers Groq
+  // whenever GROQ_API_KEY is set; GEMINI_API_KEY remains the fallback.
+  // GROQ_BASE_URL defaults to Groq's public endpoint.
+  GROQ_API_KEY: z.string().optional(),
+  GROQ_MODEL: z.string().min(1).default('openai/gpt-oss-120b'),
+  GROQ_BASE_URL: z.string().min(1).default('https://api.groq.com/openai/v1'),
+  /** Optional separate vision model on the same provider. */
+  GROQ_VISION_MODEL: z.string().optional(),
+  /** Whisper model used by transcribeAudio on Groq-compatible providers. */
+  GROQ_AUDIO_MODEL: z.string().min(1).default('whisper-large-v3-turbo'),
+
+  // Optional separate vision provider (Groq has no vision models today; the
+  // HF Router serves Qwen VL free). Falls back to GROQ_* when unset.
+  VISION_API_KEY: z.string().optional(),
+  VISION_BASE_URL: z.string().optional(),
+  VISION_MODEL: z.string().optional(),
 
   TRANSCRIBER_MIN_CONFIDENCE: z.coerce.number().min(0).max(1).optional(),
 

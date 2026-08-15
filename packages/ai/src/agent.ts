@@ -8,6 +8,7 @@ import { findTool, toGeminiDeclarations, type Cart, type ToolContext } from './t
 import { languageName, type DetectedLanguage } from './transcription';
 import { defaultSentiment, extractSentiment } from './sentiment';
 import { defaultPrinciple, extractPrinciple } from './principles';
+import { ESCALATION_CATEGORY } from '../../shared/src/constants';
 
 export interface AgentTurn {
   role: 'user' | 'model';
@@ -73,6 +74,50 @@ export type SalesAgentDeps = AgentDeps;
 
 const MAX_TOOL_ROUNDS = 6;
 const FALLBACK_REPLY = 'Sorry, I ran into a problem responding. Please try again, or ask to speak with a human.';
+
+/** How many recent model turns to check for near-duplicate responses. */
+const DUPLICATE_CHECK_WINDOW = 4;
+/** Similarity threshold (0-1). Above this = near-duplicate. */
+const DUPLICATE_SIMILARITY_THRESHOLD = 0.75;
+
+/**
+ * Simple word-overlap similarity (Jaccard-ish) to detect near-duplicate messages.
+ * Ignores case, punctuation, and short stopwords.
+ */
+function textSimilarity(a: string, b: string): number {
+  const normalize = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/[^\w\s]/g, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length > 2);
+  const setA = new Set(normalize(a));
+  const setB = new Set(normalize(b));
+  if (setA.size === 0 && setB.size === 0) return 1;
+  if (setA.size === 0 || setB.size === 0) return 0;
+  let intersection = 0;
+  for (const w of setA) if (setB.has(w)) intersection++;
+  const union = setA.size + setB.size - intersection;
+  return intersection / union;
+}
+
+/**
+ * Checks if the proposed reply is a near-duplicate of any recent agent (model) message
+ * in the conversation history. Returns the matching history turn if found.
+ */
+function findDuplicateInHistory(proposedReply: string, history: AgentTurn[]): AgentTurn | null {
+  const recentModelTurns = history
+    .filter((t) => t.role === 'model' && t.text && t.text.trim().length > 0)
+    .slice(-DUPLICATE_CHECK_WINDOW);
+
+  for (const turn of recentModelTurns) {
+    const similarity = textSimilarity(proposedReply, turn.text!);
+    if (similarity >= DUPLICATE_SIMILARITY_THRESHOLD) {
+      return turn;
+    }
+  }
+  return null;
+}
 
 export class Agent {
   constructor(
@@ -170,6 +215,24 @@ export class Agent {
       } else {
         finalText = this.deps.fallbackReply ?? FALLBACK_REPLY;
       }
+    }
+
+    // Duplicate-response guard: if the agent is about to send a near-duplicate
+    // of a recent model message, escalate instead of repeating. This catches
+    // the "stuck in a loop re-asking the same question" failure mode.
+    const duplicate = findDuplicateInHistory(finalText, history);
+    if (duplicate && !escalated) {
+      this.deps.logger.warn('agent duplicate response detected — escalating', {
+        ...loggerCtx,
+        conversationId,
+        proposedText: finalText.slice(0, 200),
+        matchedText: duplicate.text!.slice(0, 200),
+      });
+      escalated = true;
+      escalationReason =
+        'Agent repeated a near-identical response without progress — possible conversation loop';
+      escalationCategory = ESCALATION_CATEGORY.AGENT_UNCERTAIN;
+      finalText = 'I want to make sure you get the right help. Let me connect you with a human who can assist better.';
     }
 
     // The model tags its sentiment + principle assessment on the end of the

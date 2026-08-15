@@ -34,12 +34,16 @@ export function extractSentiment(text: string): { text: string; sentiment: strin
 }
 
 /**
- * Deterministic backstop when the model did not emit a marker: an angry
- * escalation is scored FRUSTRATED, everything else NEUTRAL.
+ * Deterministic backstop when the model did not emit a marker:
+ * - An angry escalation is scored FRUSTRATED
+ * - An agent_uncertain escalation (loop detected) is scored FRUSTRATED
+ * - Everything else NEUTRAL
  */
 export function defaultSentiment(escalated: boolean, escalationCategory: string | undefined): string {
-  if (escalated && escalationCategory === 'ANGRY_CUSTOMER') {
-    return MESSAGE_SENTIMENT.FRUSTRATED;
+  if (escalated) {
+    if (escalationCategory === 'ANGRY_CUSTOMER' || escalationCategory === 'AGENT_UNCERTAIN') {
+      return MESSAGE_SENTIMENT.FRUSTRATED;
+    }
   }
   return MESSAGE_SENTIMENT.NEUTRAL;
 }

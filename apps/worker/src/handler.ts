@@ -142,6 +142,13 @@ async function runAgentIfText(
   if (!message.text && !voiceNote) return; // other media-only messages are not answered yet
 
   const history = await loadHistory(deps.prisma, conversationId);
+  logger.debug('agent context loaded', {
+    messageId,
+    conversationId,
+    historyTurns: history.length,
+    lastTurn: history[history.length - 1] ?? null,
+    historyText: history.map((t) => `${t.role}: ${t.text ?? t.transcription ?? ''}`).join('\n'),
+  });
   const agentReply = await deps.agent.run({
     businessId,
     customerId,
@@ -307,13 +314,18 @@ async function transcribeVoiceNote(
   return result;
 }
 
-async function loadHistory(prisma: PrismaClient, conversationId: string) {
+export async function loadHistory(prisma: PrismaClient, conversationId: string) {
+  // Load the full conversation history (up to a generous limit) so the agent
+  // never loses context mid-conversation. The previous limit of 10 caused
+  // the agent to forget earlier turns and repeat generic questions.
+  // 100 messages covers virtually all WhatsApp conversations while staying
+  // well within the model's context window.
   const messages = await prisma.message.findMany({
     where: { conversationId },
-    orderBy: { sentAt: 'asc' },
-    take: 10,
+    orderBy: [{ sentAt: 'desc' }, { createdAt: 'desc' }],
+    take: 100,
   });
-  return messages.map((m) => ({
+  return messages.reverse().map((m) => ({
     role: m.direction === MESSAGE_DIRECTION.INBOUND ? ('user' as const) : ('model' as const),
     text: m.text ?? undefined,
     transcription: m.transcription ?? undefined,

@@ -2,8 +2,10 @@ import { Inject, Module, OnApplicationShutdown } from '@nestjs/common';
 import { PrismaClient } from '../../../../packages/db/src';
 import type { Env } from '../../../../packages/shared/src';
 import { AnalyticsService } from '../../../../packages/analytics/src';
-import { ANALYTICS_PRISMA, APP_CONFIG_TOKEN, PRISMA } from '../tokens';
+import { ANALYTICS_PRISMA, APP_CONFIG_TOKEN, PRISMA, AUDIT, LOGGER } from '../tokens';
 import { AnalyticsController } from './analytics.controller';
+import { CatalogUploadController } from './catalog-upload.controller';
+import { CatalogUploadService } from './catalog-upload.service';
 import { AdminAuthService, type AdminAuthConfig } from './admin-auth.service';
 
 const DASHBOARD_SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
@@ -13,9 +15,12 @@ const DASHBOARD_SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
  * only issues SELECT queries. When ANALYTICS_DATABASE_URL is set, the dashboard
  * gets its OWN PrismaClient pointed at that URL (a replica or a SELECT-only
  * role), so it can never write to the primary database.
+ *
+ * Also includes catalog upload functionality (Phase 10) — write-enabled
+ * product creation with human review gate, protected by the same admin auth.
  */
 @Module({
-  controllers: [AnalyticsController],
+  controllers: [AnalyticsController, CatalogUploadController],
   providers: [
     {
       provide: ANALYTICS_PRISMA,
@@ -50,6 +55,7 @@ const DASHBOARD_SESSION_MAX_AGE_MS = 12 * 60 * 60 * 1000;
       },
       inject: [APP_CONFIG_TOKEN],
     },
+    CatalogUploadService,
   ],
 })
 export class AnalyticsModule implements OnApplicationShutdown {

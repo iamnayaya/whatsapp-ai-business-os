@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { SalesAgent, buildContents, type AgentTurn } from '../src/agent';
 import { buildSystemPrompt, formatMoney } from '../src/prompt';
 import type { GeminiLike, GeminiResult } from '../src/types';
+import type { GeminiTurn } from '../src/client';
 import type { AuditService } from '../../audit/src';
 import { createLogger } from '../../shared/src';
 
@@ -273,6 +274,65 @@ describe('SalesAgent', () => {
 
     expect(reply.principle).toBe('NONE');
     expect(reply.text).toBe('We have it in stock.');
+  });
+
+  it("acknowledges the customer's category answer instead of re-asking the same question", async () => {
+    let seenLastTurn = '';
+    const llm = {
+      generate: vi.fn(async (opts: { contents: GeminiTurn[]; systemInstruction: string; tools: unknown }) => {
+        const last = opts.contents[opts.contents.length - 1];
+        seenLastTurn = last.parts.map((p) => (p as { text?: string }).text ?? '').join(' ');
+        return { text: 'Great — you chose chairs. Here are our chair options.\n[sentiment: positive]\n[principle: none]', functionCalls: [] };
+      }),
+    } as unknown as GeminiLike;
+    const { agent } = makeAgent(llm, makePrisma());
+
+    const reply = await agent.run({
+      ...input,
+      history: [
+        { role: 'user', text: 'Me kuke dashi?' },
+        { role: 'model', text: 'Which category — chairs, carpets, or decor?' },
+        { role: 'user', text: 'Kujera' },
+      ],
+    });
+
+    // The model received the customer's actual answer as its final input...
+    expect(seenLastTurn).toContain('Kujera');
+    // ...and the reply acknowledges that specific answer, not a generic re-ask.
+    expect(reply.text).toContain('chairs');
+  });
+
+  it('keeps full prior context across a multi-hour gap (no reset to a fresh greeting)', async () => {
+    let receivedTurns: string[] = [];
+    const llm = {
+      generate: vi.fn(async (opts: { contents: GeminiTurn[]; systemInstruction: string; tools: unknown }) => {
+        receivedTurns = opts.contents.map((c) => c.parts.map((p) => (p as { text?: string }).text ?? '').join(' '));
+        return { text: 'Welcome back — you were asking about our products.\n[sentiment: neutral]\n[principle: none]', functionCalls: [] };
+      }),
+    } as unknown as GeminiLike;
+    const { agent } = makeAgent(llm, makePrisma());
+
+    const reply = await agent.run({
+      ...input,
+      history: [
+        { role: 'user', text: 'Hy' },
+        { role: 'model', text: 'Welcome to NAYAYA & CO.' },
+        { role: 'user', text: 'Me kuke dashi?' },
+        { role: 'model', text: 'We sell furniture, carpets, electronics, flowers, decor.' },
+        { role: 'user', text: 'Hy' },
+      ],
+    });
+
+    // Every prior turn — including hours-old context — reaches the model.
+    expect(receivedTurns).toEqual([
+      'Hy',
+      'Welcome to NAYAYA & CO.',
+      'Me kuke dashi?',
+      'We sell furniture, carpets, electronics, flowers, decor.',
+      'Hy',
+    ]);
+    // The reply continues the conversation instead of restarting with a greeting.
+    expect(reply.text).toContain('you were asking about our products');
   });
 });
 

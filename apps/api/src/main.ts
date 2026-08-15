@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import 'reflect-metadata';
+import { randomBytes } from 'crypto';
 import { join } from 'path';
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
@@ -16,17 +17,28 @@ async function bootstrap(): Promise<void> {
   app.useStaticAssets(join(__dirname, 'assets'), { prefix: '/assets/' });
 
   // Defense-in-depth headers on every response; the dashboard pages are
-  // server-rendered with no client-side script, so a strict CSP is safe.
+  // server-rendered with no client-side script, so a strict CSP is safe. The
+  // catalog upload pages run a small inline script (drag-drop + previews) via
+  // a per-request nonce so script-src stays nonce-restricted.
   app.use((req: Request, res: Response, next: NextFunction) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Referrer-Policy', 'no-referrer');
     if (req.path.startsWith('/admin')) {
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
-      res.setHeader(
-        'Content-Security-Policy',
-        "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; base-uri 'none'; form-action 'self'; script-src 'none'",
-      );
+      if (req.path.startsWith('/admin/catalog')) {
+        const nonce = randomBytes(16).toString('base64');
+        (res as unknown as { locals: Record<string, unknown> }).locals.cspNonce = nonce;
+        res.setHeader(
+          'Content-Security-Policy',
+          `default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; base-uri 'none'; form-action 'self'; script-src 'nonce-${nonce}'`,
+        );
+      } else {
+        res.setHeader(
+          'Content-Security-Policy',
+          "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; base-uri 'none'; form-action 'self'; script-src 'none'",
+        );
+      }
     }
     next();
   });

@@ -51,7 +51,7 @@ describe('createRedisCounter', () => {
     await counter.inc('ai.error', 10_000);
     await counter.inc('ai.error', 25_000);
 
-    const total = await counter.read('ai.error', 20_000);
+    const total = await counter.read('ai.error', 20_000, 30_000);
 
     expect(redis.mget).toHaveBeenCalledWith(['m:ai.error:2', 'm:ai.error:3']);
     expect(total).toBe(1);
@@ -61,6 +61,6 @@ describe('createRedisCounter', () => {
     const { redis } = makeRedis();
     const counter = createRedisCounter({ redis, prefix: 'm', bucketMs: 10_000 });
 
-    await expect(counter.read('ai.error', 0)).resolves.toBe(0);
+    await expect(counter.read('ai.error', 0, 10_000)).resolves.toBe(0);
   });
 });

@@ -16,7 +16,7 @@ export interface CounterRedis {
 export interface RedisCounter {
   inc(label: string, atMs?: number): Promise<void>;
   /** Sum of counts for `label` in [sinceMs, now]. */
-  read(label: string, sinceMs: number): Promise<number>;
+  read(label: string, sinceMs: number, nowMs?: number): Promise<number>;
 }
 
 export interface RedisCounterConfig {
@@ -36,10 +36,9 @@ export function createRedisCounter({ redis, prefix, bucketMs }: RedisCounterConf
       // Keys live for 2 bucket windows, then expire naturally.
       await redis.expire(key, Math.max(2, Math.ceil((2 * bucketMs) / 1000)));
     },
-    async read(label, sinceMs) {
-      const now = Date.now();
+    async read(label, sinceMs, nowMs = Date.now()) {
       const fromBucket = Math.floor(sinceMs / bucketMs);
-      const toBucket = Math.floor(now / bucketMs);
+      const toBucket = Math.floor(nowMs / bucketMs);
       const keys: string[] = [];
       for (let b = fromBucket; b <= toBucket; b++) keys.push(keyOf(label, b));
       const values = await redis.mget(keys);

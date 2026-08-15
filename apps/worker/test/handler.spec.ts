@@ -163,6 +163,80 @@ describe('handleInboundMessage', () => {
   });
 });
 
+function makeHistoryRow(i: number, sentAt: Date, opts: { direction?: string; text?: string } = {}) {
+  return {
+    id: `m${i}`,
+    direction: opts.direction ?? MESSAGE_DIRECTION.INBOUND,
+    type: 'text',
+    text: opts.text ?? `message ${i}`,
+    transcription: null,
+    sentAt,
+    createdAt: sentAt,
+  };
+}
+
+describe('handleInboundMessage history (regression: agent must see the current turn)', () => {
+  it("passes the customer's category answer ('Kujera') to the agent as the LAST turn even when the conversation exceeds the history window", async () => {
+    const prisma = makePrisma();
+    prisma.message.findUnique.mockResolvedValueOnce({ id: 'msg-1', text: 'Kujera', type: 'text', ...businessCtx });
+
+    const prior = Array.from({ length: 12 }, (_, i) =>
+      makeHistoryRow(i, new Date(`2026-08-15T00:${String(i).padStart(2, '0')}:00Z`), {
+        direction: i % 2 === 0 ? MESSAGE_DIRECTION.INBOUND : MESSAGE_DIRECTION.OUTBOUND,
+        text: i % 2 === 0 ? `question ${i}` : `answer ${i}`,
+      }),
+    );
+    const current = makeHistoryRow(12, new Date('2026-08-15T01:00:00Z'), { text: 'Kujera' });
+    // Simulate the fixed query: newest 10 first (current message is newest).
+    prisma.message.findMany.mockResolvedValueOnce([current, ...[...prior].reverse()].slice(0, 10));
+    prisma.message.create.mockResolvedValueOnce({ id: 'out-k', sentAt: new Date('2026-08-15T01:00:01Z') });
+
+    const deps = makeDeps(prisma);
+    deps.agentRun.mockResolvedValueOnce({ text: 'Great — here are our chairs.', escalated: false, toolCalls: [], sentiment: 'NEUTRAL' });
+
+    await handleInboundMessage(makeJob(), deps as never);
+
+    const agentArg = deps.agentRun.mock.calls[0][0];
+    expect(agentArg.history).toHaveLength(10);
+    // The customer's category answer reached the agent as the final turn...
+    expect(agentArg.history[agentArg.history.length - 1]).toMatchObject({ role: 'user', text: 'Kujera' });
+    // ...and the earlier assistant category question is still in context.
+    expect(agentArg.history.some((t: { text?: string }) => t.text === 'answer 11')).toBe(true);
+  });
+
+  it('retains full prior context across a multi-hour gap (does not reset to a fresh greeting)', async () => {
+    const prisma = makePrisma();
+    prisma.message.findUnique.mockResolvedValueOnce({ id: 'msg-1', text: 'Hy', type: 'text', ...businessCtx });
+
+    const turns = [
+      makeHistoryRow(0, new Date('2026-08-15T00:21:00Z'), { text: 'Hy', direction: MESSAGE_DIRECTION.INBOUND }),
+      makeHistoryRow(1, new Date('2026-08-15T00:21:10Z'), { text: 'Welcome to NAYAYA & CO.', direction: MESSAGE_DIRECTION.OUTBOUND }),
+      makeHistoryRow(2, new Date('2026-08-15T00:22:00Z'), { text: 'Me kuke dashi?', direction: MESSAGE_DIRECTION.INBOUND }),
+      makeHistoryRow(3, new Date('2026-08-15T00:22:30Z'), { text: 'We sell furniture, carpets, electronics, flowers, decor.', direction: MESSAGE_DIRECTION.OUTBOUND }),
+      makeHistoryRow(4, new Date('2026-08-15T03:59:00Z'), { text: 'Hy', direction: MESSAGE_DIRECTION.INBOUND }),
+      makeHistoryRow(5, new Date('2026-08-15T05:02:00Z'), { text: 'Hy', direction: MESSAGE_DIRECTION.INBOUND }),
+    ];
+    prisma.message.findMany.mockResolvedValueOnce([...turns].reverse());
+    prisma.message.create.mockResolvedValueOnce({ id: 'out-gap', sentAt: new Date('2026-08-15T05:02:05Z') });
+
+    const deps = makeDeps(prisma);
+    deps.agentRun.mockResolvedValueOnce({ text: 'I am still here — you were asking about our products.', escalated: false, toolCalls: [], sentiment: 'NEUTRAL' });
+
+    await handleInboundMessage(makeJob(), deps as never);
+
+    const agentArg = deps.agentRun.mock.calls[0][0];
+    expect(agentArg.history.map((t: { text?: string }) => t.text)).toEqual([
+      'Hy',
+      'Welcome to NAYAYA & CO.',
+      'Me kuke dashi?',
+      'We sell furniture, carpets, electronics, flowers, decor.',
+      'Hy',
+      'Hy',
+    ]);
+    expect(agentArg.history[agentArg.history.length - 1]).toMatchObject({ role: 'user', text: 'Hy' });
+  });
+});
+
 describe('handleInboundMessage audio (Phase 3 voice notes)', () => {
   const audioMessage = {
     id: 'msg-audio-1',

@@ -55,11 +55,11 @@ describe('dashboard branding (requirement: no hex outside the theme file)', () =
     expect(source).toMatch(/var\(--brand-sans\)/);
   });
 
-  it('renders the brand logo lockup + favicon in both pages', () => {
+  it('renders the brand logo + favicon in both pages', () => {
     const login = renderLogin();
     const dash = renderDashboard(sampleData(), 'Test Shop');
     for (const html of [login, dash]) {
-      expect(html).toContain(brand.logo.lockupSvg);
+      expect(html).toContain('/assets/nayaya-logo.png');
       expect(html).toContain('data:image/svg+xml');
       expect(html).toContain(brand.fonts.googleStylesheet);
     }

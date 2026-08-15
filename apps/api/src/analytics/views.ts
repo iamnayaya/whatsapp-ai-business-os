@@ -5,6 +5,8 @@ const FONTS = `<link rel="preconnect" href="https://fonts.googleapis.com"><link 
 
 const FAVICON = `<link rel="icon" type="image/svg+xml" href="${faviconDataUri()}">`;
 
+const LOGO_IMG = '<img src="/assets/nayaya-logo.png" alt="NAYAYA &amp; CO." class="brand-logo">';
+
 const CSS = `
   :root {
     ${brandCssVars()}
@@ -14,7 +16,7 @@ const CSS = `
   body { margin:0; font-family: var(--brand-sans); background: var(--brand-base); color: var(--brand-ink); }
   header { background: var(--brand-surface); border-bottom: 1px solid var(--brand-line); padding: 12px 22px; display:flex; align-items:center; justify-content: space-between; gap: 12px; }
   header .brand { display:flex; align-items:center; gap: 12px; }
-  header .brand svg { height: 40px; width: auto; display: block; }
+  header .brand .brand-logo { height: 40px; width: auto; display: block; }
   header .brand-title { font-family: var(--brand-serif); font-size: 18px; color: var(--brand-primary); margin: 0; letter-spacing: .02em; }
   header .meta { color: var(--brand-muted); font-size: 13px; }
   main { max-width: 1080px; margin: 20px auto 60px; padding: 0 16px; }
@@ -42,7 +44,7 @@ const CSS = `
   @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
   .muted { color: var(--brand-muted); }
   .login { max-width: 340px; margin: 90px auto; background: var(--brand-surface); border:1px solid var(--brand-line); border-radius: 12px; padding: 26px; }
-  .login .brand svg { height: 56px; width: auto; display: block; margin: 0 auto 14px; }
+  .login .brand .brand-logo { height: 56px; width: auto; display: block; margin: 0 auto 14px; }
   .login h1 { font-family: var(--brand-serif); font-size: 18px; margin: 0 0 4px; color: var(--brand-secondary); text-align:center; }
   .login p { color: var(--brand-muted); font-size: 13px; margin: 0 0 18px; text-align:center; }
   .login input { width: 100%; padding: 10px; border:1px solid var(--brand-line); border-radius: 8px; font-size: 14px; margin-bottom: 12px; background: var(--brand-base); color: var(--brand-ink); }
@@ -117,7 +119,7 @@ ${FONTS}
 </head>
 <body>
 <form class="login" method="post" action="/admin/login">
-  <div class="brand">${brand.logo.lockupSvg}</div>
+  <div class="brand">${LOGO_IMG}</div>
   <h1>Owner Dashboard</h1>
   <p>Internal use only. Sign in to view the daily 2-minute check.</p>
   <input type="password" name="password" placeholder="Password" autofocus autocomplete="current-password">
@@ -190,7 +192,7 @@ ${FONTS}
 <body>
 <header>
   <div class="brand">
-    ${brand.logo.lockupSvg}
+    ${LOGO_IMG}
     <span class="brand-title">Owner Dashboard</span>
   </div>
   <div class="meta">Updated ${generatedAt} · <form class="logout-form" method="post" action="/admin/logout"><button type="submit" class="logout">Sign out</button></form></div>

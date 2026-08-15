@@ -55,6 +55,8 @@ COPY --from=build /app/package.json /app/package-lock.json ./
 # can be run as one-off jobs inside the same image.
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
+# Brand assets (logo) referenced at runtime by the API dashboard.
+COPY --from=build /app/apps/api/src/assets ./dist/apps/api/src/assets
 # The compiled `dist/packages/db/src/client.js` requires './generated/client'
 # (Prisma's output). tsc does not emit the generated client, so copy it into
 # the dist tree alongside the compiled sources.

@@ -63,7 +63,7 @@ export const envSchema = z.object({
   // guaranteeing the dashboard can never write to the primary database.
   ANALYTICS_DATABASE_URL: z.string().optional(),
 
-  BUSINESS_NAME: z.string().min(1).default('My Business'),
+  BUSINESS_NAME: z.string().min(1).default('NAYAYA & CO.'),
   BUSINESS_PHONE_NUMBER: z.string().optional(),
   BUSINESS_CURRENCY: z.string().min(1).default('NGN'),
   BUSINESS_TIMEZONE: z.string().min(1).default('Africa/Lagos'),
